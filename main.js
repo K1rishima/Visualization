@@ -377,7 +377,7 @@ function LoadTexture() {
 
     const image = new Image();
     image.crossOrigin = 'anonymus';
-    image.src = "https://raw.githubusercontent.com/K1rishima/Visualization/tree/cgw/pikachu.jpg";
+    image.src = "https://raw.githubusercontent.com/K1rishima/Visualization/cgw/texture.jpg";
     image.onload = () => {
         gl.bindTexture(gl.TEXTURE_2D, texture);
         gl.texImage2D(
