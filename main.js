@@ -18,6 +18,7 @@ function onChangeParams() {
 function Model(name) {
     this.name = name;
     this.iVertexBuffer = gl.createBuffer();
+    this.iNormalBuffer = gl.createBuffer();
     this.count = 0;
 
     this.BufferData = function (vertices) {
@@ -28,13 +29,24 @@ function Model(name) {
         this.count = vertices.length / 3;
     }
 
+    this.BufferNormals = function (normals) {
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STREAM_DRAW);
+
+    }
+
     this.Draw = function () {
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
         gl.vertexAttribPointer(shProgram.iAttribVertex, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(shProgram.iAttribVertex);
 
-        gl.drawArrays(gl.LINE_STRIP, 0, this.count);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer);
+        gl.vertexAttribPointer(shProgram.iAttribNormal, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(shProgram.iAttribNormal);
+
+        gl.drawArrays(gl.TRIANGLES, 0, this.count);
     }
 }
 
@@ -86,6 +98,16 @@ function draw() {
 
     /* Draw the six faces of a cube, with different colors. */
     gl.uniform4fv(shProgram.iColor, [1, 1, 0, 1]);
+    let dx = parseFloat(document.getElementById('dx').value)
+    let dy = parseFloat(document.getElementById('dy').value)
+    let dz = parseFloat(document.getElementById('dz').value)
+    let x = parseFloat(document.getElementById('x').value)
+    let y = parseFloat(document.getElementById('y').value)
+    let z = parseFloat(document.getElementById('z').value)
+    gl.uniform3fv(shProgram.iLightDir, [dx, dy, dz]);
+    gl.uniform3fv(shProgram.iLightPos, [x, y, z]);
+    gl.uniform1f(shProgram.iAngle, parseFloat(document.getElementById('angle').value));
+    gl.uniform1f(shProgram.iDiffusion, parseFloat(document.getElementById('diffusion').value));
 
     surface.Draw();
 }
@@ -101,14 +123,49 @@ function CreateSurfaceData() {
     for (let i = 0; i < 360; i += inc_i) {
         for (let j = 0; j < 360; j += inc_j) {
             vertexList.push(...KleinBottle(deg2rad(i), deg2rad(j)))
+            vertexList.push(...KleinBottle(deg2rad(i + inc_i), deg2rad(j)))
+            vertexList.push(...KleinBottle(deg2rad(i), deg2rad(j + inc_j)))
+            vertexList.push(...KleinBottle(deg2rad(i), deg2rad(j + inc_j)))
+            vertexList.push(...KleinBottle(deg2rad(i + inc_i), deg2rad(j)))
+            vertexList.push(...KleinBottle(deg2rad(i + inc_i), deg2rad(j + inc_j)))
         }
     }
 
     return vertexList;
 }
+function CreateSurfaceNormals() {
+    let normalList = [];
+
+    for (let i = 0; i < 360; i += inc_i) {
+        for (let j = 0; j < 360; j += inc_j) {
+            normalList.push(...KleinBottleNormal(deg2rad(i), deg2rad(j)))
+            normalList.push(...KleinBottleNormal(deg2rad(i + inc_i), deg2rad(j)))
+            normalList.push(...KleinBottleNormal(deg2rad(i), deg2rad(j + inc_j)))
+            normalList.push(...KleinBottleNormal(deg2rad(i), deg2rad(j + inc_j)))
+            normalList.push(...KleinBottleNormal(deg2rad(i + inc_i), deg2rad(j)))
+            normalList.push(...KleinBottleNormal(deg2rad(i + inc_i), deg2rad(j + inc_j)))
+        }
+    }
+
+    return normalList;
+}
 let a = 5, s = 0.2;
 function KleinBottle(u, v) {
     return [s * x(u, v), s * y(u, v), s * z(u, v)]
+}
+const e = 0.0001;
+function KleinBottleNormal(u, v) {
+    let u1 = KleinBottle(u, v),
+        u2 = KleinBottle(u + e, v),
+        v1 = KleinBottle(u, v),
+        v2 = KleinBottle(u, v + e);
+    const dU = [], dV = []
+    for (let i = 0; i < 3; i++) {
+        dU.push((u1[i] - u2[i]) / e)
+        dV.push((v1[i] - v2[i]) / e)
+    }
+    const n = m4.normalize(m4.cross(dU, dV))
+    return n
 }
 
 const { cos, sin } = Math;
@@ -132,11 +189,21 @@ function initGL() {
     shProgram.Use();
 
     shProgram.iAttribVertex = gl.getAttribLocation(prog, "vertex");
+    shProgram.iAttribNormal = gl.getAttribLocation(prog, "normal");
     shProgram.iModelViewProjectionMatrix = gl.getUniformLocation(prog, "ModelViewProjectionMatrix");
     shProgram.iColor = gl.getUniformLocation(prog, "color");
+    shProgram.iLightDir = gl.getUniformLocation(prog, "lightDir");
+    shProgram.iLightPos = gl.getUniformLocation(prog, "lightPos");
+    shProgram.iAngle = gl.getUniformLocation(prog, "angle");
+    shProgram.iDiffusion = gl.getUniformLocation(prog, "diffusion");
 
     surface = new Model('Surface');
     surface.BufferData(CreateSurfaceData());
+    let normals = CreateSurfaceNormals()
+    // for (let i = 0; i < normals.length * 0.5; i++) {
+    //     normals[i]*=-1
+    // }
+    surface.BufferNormals(normals);
 
     gl.enable(gl.DEPTH_TEST);
 }
