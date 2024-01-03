@@ -5,7 +5,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 
-    <title>PA#1</title>
+    <title>PA#3</title>
     <style>
         body {
             background-color: #EEEEEE;
@@ -22,13 +22,42 @@
 <body onload="init()">
 
     <h2>A Cube with "Trackball" Mouse Rotation</h2>
+    <div>
+        <p id="message">Drag your mouse on the cube to rotate it.<br>
+            (On a touch screen, you can use your finger.)</p>
+        <p>increment of u parameter</p>
+        <input type="number" name="u" id="u" value="1" min="1" max="180" step="1" onchange="onChangeParams()">
+        <p>increment of v parameter</p>
+        <input type="number" name="v" id="v" value="1" min="1" max="180" step="1" onchange="onChangeParams()">
+    </div>
+    <label for="speed">Set speed of animation</label>
+    <input type="range" name="speed" id="speed" min="9000" max="9999" step="10" value="9000">
+    <div>
+        <p>Set light position</p>
+        <!-- <label for="x">X</label>
+        <input type="range" name="x" id="x" min="-2" max="2" step="0.1" value="1" onchange="draw()"> -->
+        <label for="y">Y</label>
+        <input type="range" name="y" id="y" min="-2" max="2" step="0.1" value="1" onchange="draw()">
+        <label for="z">Z</label>
+        <input type="range" name="z" id="z" min="-2" max="2" step="0.1" value="1" onchange="draw()">
+    </div>
+    <div>
+        <p>Set light direction</p>
+        <label for="dx">X</label>
+        <input type="range" name="dx" id="dx" min="-2" max="2" step="0.1" value="-0" onchange="draw()">
+        <label for="dy">Y</label>
+        <input type="range" name="dy" id="dy" min="-2" max="2" step="0.1" value="-1" onchange="draw()">
+        <label for="dz">Z</label>
+        <input type="range" name="dz" id="dz" min="-2" max="2" step="0.1" value="-1" onchange="draw()">
+    </div>
 
-    <p id="message">Drag your mouse on the cube to rotate it.<br>
-        (On a touch screen, you can use your finger.)</p>
-    <p>increment of u parameter</p>
-    <input type="number" name="u" id="u" value="1" min="1" max="180" step="1" onchange="onChangeParams()">
-    <p>increment of v parameter</p>
-    <input type="number" name="v" id="v" value="1" min="1" max="180" step="1" onchange="onChangeParams()">
+    <div>
+        <p>set spotlight parameters</p>
+        <label for="angle">Angle</label>
+        <input type="range" name="angle" id="angle" min="0" max="2" step="0.1" value="1" onchange="draw()">
+        <label for="diffusion">Diffusion</label>
+        <input type="range" name="diffusion" id="diffusion" min="0" max="1" step="0.01" value="0.1" onchange="draw()">
+    </div>
 
 
     <div id="canvas-holder">

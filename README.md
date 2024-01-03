@@ -1,5 +1,5 @@
 # Visualization
 
-Lab 1 GIF
+Lab 3 GIF
 
-![plot](./lab1.gif)
+![plot](./Lab3.gif)
