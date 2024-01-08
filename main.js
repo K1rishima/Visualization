@@ -9,10 +9,6 @@ function deg2rad(angle) {
     return angle * Math.PI / 180;
 }
 
-function onChangeParams() {
-    surface.BufferData(CreateSurfaceData());
-    draw()
-}
 
 // Constructor
 function Model(name) {
@@ -90,37 +86,25 @@ function draw() {
     surface.Draw();
 }
 
-let inc_i = 1,
-    inc_j = 1;
 function CreateSurfaceData() {
     let vertexList = [];
-
-    inc_i = parseInt(document.getElementById('u').value)
-    inc_j = parseInt(document.getElementById('v').value)
-
-    for (let i = 0; i < 360; i += inc_i) {
-        for (let j = 0; j < 360; j += inc_j) {
-            vertexList.push(...KleinBottle(deg2rad(i), deg2rad(j)))
+    let uSteps = 100;
+    let vSteps = 100;
+    let uInc = 2 / uSteps;
+    let vInc = 0.8 / vSteps;
+    for (let u = -1; u < 1; u += uInc) {
+        for (let v = 0.2; v < 1; v += vInc) {
+            vertexList.push(...vertex(u, v))
         }
     }
 
     return vertexList;
 }
-let a = 5, s = 0.2;
-function KleinBottle(u, v) {
-    return [s * x(u, v), s * y(u, v), s * z(u, v)]
-}
-
-const { cos, sin } = Math;
-
-function x(u, v) {
-    return ((a + cos(u * 0.5) * sin(v) - sin(u * 0.5) * sin(2 * v)) * cos(u));
-}
-function y(u, v) {
-    return ((a + cos(u * 0.5) * sin(v) - sin(u * 0.5) * sin(2 * v)) * sin(u));
-}
-function z(u, v) {
-    return (sin(u * 0.5) * sin(v) + cos(u * 0.5) * sin(2 * v));
+const { pow } = Math
+function vertex(u, v) {
+    let x = (-3 * u - pow(u, 5) + 2 * pow(u, 3) * pow(v, 2) + 3 * u * pow(v, 4)) / (6 * (pow(u, 2) + pow(v, 2)))
+    let y = (-3 * v - 3 * pow(u, 4) * v - 2 * pow(u, 2) * pow(v, 3) + pow(v, 5)) / (6 * (pow(u, 2) + pow(v, 2)))
+    return [x, y, u]
 }
 
 
