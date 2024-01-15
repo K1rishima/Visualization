@@ -4,17 +4,12 @@ let gl;                         // The webgl context.
 let surface;                    // A surface model
 let shProgram;                  // A shader program
 let spaceball;                  // A SimpleRotator object that lets the user rotate the view by mouse.
-let lightModel;
-let lightModel2;
+let light;
 
 function deg2rad(angle) {
     return angle * Math.PI / 180;
 }
 
-function onChangeParams() {
-    surface.BufferData(CreateSurfaceData());
-    draw()
-}
 
 // Constructor
 function Model(name) {
@@ -30,8 +25,7 @@ function Model(name) {
 
         this.count = vertices.length / 3;
     }
-
-    this.BufferNormals = function (normals) {
+    this.LoadNormals = function (normals) {
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.iNormalBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STREAM_DRAW);
@@ -49,14 +43,6 @@ function Model(name) {
         gl.enableVertexAttribArray(shProgram.iAttribNormal);
 
         gl.drawArrays(gl.TRIANGLES, 0, this.count);
-    }
-    this.Draw2 = function () {
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
-        gl.vertexAttribPointer(shProgram.iAttribVertex, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(shProgram.iAttribVertex);
-
-        gl.drawArrays(gl.LINE_STRIP, 0, this.count);
     }
 }
 
@@ -89,13 +75,14 @@ function draw() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     /* Set the values of the projection transformation */
-    let projection = m4.perspective(Math.PI / 8, 1, 8, 12);
+    let p = 2;
+    let projection = m4.orthographic(-p, p, -p, p, -p, p);
 
     /* Get the view matrix from the SimpleRotator object.*/
     let modelView = spaceball.getViewMatrix();
 
     let rotateToPointZero = m4.axisRotation([0.707, 0.707, 0], 0.7);
-    let translateToPointZero = m4.translation(0, 0, -10);
+    let translateToPointZero = m4.translation(0, 0, 0);
 
     let matAccum0 = m4.multiply(rotateToPointZero, modelView);
     let matAccum1 = m4.multiply(translateToPointZero, matAccum0);
@@ -107,100 +94,117 @@ function draw() {
     gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, modelViewProjection);
 
     /* Draw the six faces of a cube, with different colors. */
-    gl.uniform4fv(shProgram.iColor, [1, 1, 0, 1]);
-    let dx = parseFloat(document.getElementById('dx').value);
-    let dy = parseFloat(document.getElementById('dy').value);
-    let dz = parseFloat(document.getElementById('dz').value);
-    // let x = parseFloat(document.getElementById('x').value);
-    let y = parseFloat(document.getElementById('y').value);
-    let z = parseFloat(document.getElementById('z').value);
-    gl.uniform3fv(shProgram.iLightDir, [dx, dy, dz]);
-    let speed = parseInt(document.getElementById('speed').value)
-    let x = 2 * Math.cos(Date.now() * 1/(10000-speed));
-    gl.uniform3fv(shProgram.iLightPos, [x, y, z]);
-    gl.uniform1f(shProgram.iAngle, parseFloat(document.getElementById('angle').value));
-    gl.uniform1f(shProgram.iDiffusion, parseFloat(document.getElementById('diffusion').value));
+    gl.uniform4fv(shProgram.iColor, [...hexToRgb(document.getElementById('cs').value), 1]);
+    gl.uniform3fv(shProgram.iColorLight, hexToRgb(document.getElementById('cl').value));
+    gl.uniform3fv(shProgram.iLightPosition, [2 * Math.cos(Date.now() * 0.001), 2 * Math.sin(Date.now() * 0.001), 0.1]);
 
     surface.Draw();
-    gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false,
-        m4.multiply(modelViewProjection, m4.translation(x, y, z)));
-    gl.uniform1f(shProgram.iAngle, -1);
-    lightModel.Draw();
-    lightModel2.BufferData([0, 0, 0, dx, dy, dz])
-    lightModel2.Draw2();
+    gl.uniformMatrix4fv(shProgram.iModelViewProjectionMatrix, false, m4.multiply(modelViewProjection,
+        m4.translation(2 * Math.cos(Date.now() * 0.001), 2 * Math.sin(Date.now() * 0.001), 0.1)));
+    gl.uniform3fv(shProgram.iLightPosition, [0, 0, 0]);
+    light.Draw();
 }
 
-function drawContiniously(){
+function repeatDraw() {
     draw()
-    window.requestAnimationFrame(drawContiniously)
+    window.requestAnimationFrame(repeatDraw)
 }
 
-let inc_i = 1,
-    inc_j = 1;
+function hexToRgb(hex) {
+    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return [
+        parseInt(result[1], 16) / 256,
+        parseInt(result[2], 16) / 256,
+        parseInt(result[3], 16) / 256
+    ]
+}
+
 function CreateSurfaceData() {
     let vertexList = [];
-
-    inc_i = parseInt(document.getElementById('u').value)
-    inc_j = parseInt(document.getElementById('v').value)
-
-    for (let i = 0; i < 360; i += inc_i) {
-        for (let j = 0; j < 360; j += inc_j) {
-            vertexList.push(...KleinBottle(deg2rad(i), deg2rad(j)))
-            vertexList.push(...KleinBottle(deg2rad(i + inc_i), deg2rad(j)))
-            vertexList.push(...KleinBottle(deg2rad(i), deg2rad(j + inc_j)))
-            vertexList.push(...KleinBottle(deg2rad(i), deg2rad(j + inc_j)))
-            vertexList.push(...KleinBottle(deg2rad(i + inc_i), deg2rad(j)))
-            vertexList.push(...KleinBottle(deg2rad(i + inc_i), deg2rad(j + inc_j)))
+    let uSteps = 100;
+    let vSteps = 100;
+    let uInc = 2 / uSteps;
+    let vInc = 0.8 / vSteps;
+    for (let u = -1; u < 1; u += uInc) {
+        for (let v = 0.2; v < 1; v += vInc) {
+            vertexList.push(...vertex(u, v))
+            vertexList.push(...vertex(u + uInc, v))
+            vertexList.push(...vertex(u, v + vInc))
+            vertexList.push(...vertex(u, v + vInc))
+            vertexList.push(...vertex(u + uInc, v))
+            vertexList.push(...vertex(u + uInc, v + vInc))
         }
     }
 
     return vertexList;
 }
-function CreateSurfaceNormals() {
-    let normalList = [];
-
-    for (let i = 0; i < 360; i += inc_i) {
-        for (let j = 0; j < 360; j += inc_j) {
-            normalList.push(...KleinBottleNormal(deg2rad(i), deg2rad(j)))
-            normalList.push(...KleinBottleNormal(deg2rad(i + inc_i), deg2rad(j)))
-            normalList.push(...KleinBottleNormal(deg2rad(i), deg2rad(j + inc_j)))
-            normalList.push(...KleinBottleNormal(deg2rad(i), deg2rad(j + inc_j)))
-            normalList.push(...KleinBottleNormal(deg2rad(i + inc_i), deg2rad(j)))
-            normalList.push(...KleinBottleNormal(deg2rad(i + inc_i), deg2rad(j + inc_j)))
+function CreateNormals() {
+    let vertexList = [];
+    let uSteps = 100;
+    let vSteps = 100;
+    let uInc = 2 / uSteps;
+    let vInc = 0.8 / vSteps;
+    for (let u = -1; u < 1; u += uInc) {
+        for (let v = 0.2; v < 1; v += vInc) {
+            vertexList.push(...normal(u, v))
+            vertexList.push(...normal(u + uInc, v))
+            vertexList.push(...normal(u, v + vInc))
+            vertexList.push(...normal(u, v + vInc))
+            vertexList.push(...normal(u + uInc, v))
+            vertexList.push(...normal(u + uInc, v + vInc))
         }
     }
 
-    return normalList;
+    return vertexList;
 }
-let a = 5, s = 0.2;
-function KleinBottle(u, v) {
-    return [s * x(u, v), s * y(u, v), s * z(u, v)]
+const { pow } = Math
+function vertex(u, v) {
+    let x = (-3 * u - pow(u, 5) + 2 * pow(u, 3) * pow(v, 2) + 3 * u * pow(v, 4)) / (6 * (pow(u, 2) + pow(v, 2)))
+    let y = (-3 * v - 3 * pow(u, 4) * v - 2 * pow(u, 2) * pow(v, 3) + pow(v, 5)) / (6 * (pow(u, 2) + pow(v, 2)))
+    return [x, y, u]
 }
-const e = 0.0001;
-function KleinBottleNormal(u, v) {
-    let u1 = KleinBottle(u, v),
-        u2 = KleinBottle(u + e, v),
-        v1 = KleinBottle(u, v),
-        v2 = KleinBottle(u, v + e);
-    const dU = [], dV = []
-    for (let i = 0; i < 3; i++) {
-        dU.push((u1[i] - u2[i]) / e)
-        dV.push((v1[i] - v2[i]) / e)
+const e = 0.001;
+function normal(u, v) {
+    let uv = vertex(u, v)
+    let ue = vertex(u + e, v)
+    let ve = vertex(u, v + e)
+    const dU = [(uv[0] - ue[0]) / e, (uv[1] - ue[1]) / e, (uv[2] - ue[2]) / e]
+    const dV = [(uv[0] - ve[0]) / e, (uv[1] - ve[1]) / e, (uv[2] - ue[2]) / e]
+    return m4.normalize(m4.cross(dU, dV))
+}
+
+function CreateSphereSurfaceData() {
+    let vertexList = [];
+    let u = 0;
+    let v = 0;
+    let u1 = 0.1;
+    let v1 = 0.1
+    let v0 = 0;
+    while (u < Math.PI * 2) {
+        while (v < Math.PI) {
+            let a = CreateSphereVertex(u, v);
+            let b = CreateSphereVertex(u + u1, v);
+            let c = CreateSphereVertex(u, v + v1);
+            let d = CreateSphereVertex(u + u1, v + v1);
+            vertexList.push(a.x, a.y, a.z);
+            vertexList.push(b.x, b.y, b.z);
+            vertexList.push(c.x, c.y, c.z);
+            vertexList.push(c.x, c.y, c.z);
+            vertexList.push(b.x, b.y, b.z);
+            vertexList.push(d.x, d.y, d.z);
+            v += v1;
+        }
+        v = v0;
+        u += u1;
     }
-    const n = m4.normalize(m4.cross(dU, dV))
-    return n
+    return vertexList
 }
-
-const { cos, sin } = Math;
-
-function x(u, v) {
-    return ((a + cos(u * 0.5) * sin(v) - sin(u * 0.5) * sin(2 * v)) * cos(u));
-}
-function y(u, v) {
-    return ((a + cos(u * 0.5) * sin(v) - sin(u * 0.5) * sin(2 * v)) * sin(u));
-}
-function z(u, v) {
-    return (sin(u * 0.5) * sin(v) + cos(u * 0.5) * sin(2 * v));
+function CreateSphereVertex(long, lat, radius = 0.1) {
+    return {
+        x: radius * Math.cos(long) * Math.sin(lat),
+        y: radius * Math.sin(long) * Math.sin(lat),
+        z: radius * Math.cos(lat)
+    }
 }
 
 
@@ -215,20 +219,15 @@ function initGL() {
     shProgram.iAttribNormal = gl.getAttribLocation(prog, "normal");
     shProgram.iModelViewProjectionMatrix = gl.getUniformLocation(prog, "ModelViewProjectionMatrix");
     shProgram.iColor = gl.getUniformLocation(prog, "color");
-    shProgram.iLightDir = gl.getUniformLocation(prog, "lightDir");
-    shProgram.iLightPos = gl.getUniformLocation(prog, "lightPos");
-    shProgram.iAngle = gl.getUniformLocation(prog, "angle");
-    shProgram.iDiffusion = gl.getUniformLocation(prog, "diffusion");
+    shProgram.iColorLight = gl.getUniformLocation(prog, "lightColor");
+    shProgram.iLightPosition = gl.getUniformLocation(prog, "lightPosition");
 
     surface = new Model('Surface');
+    light = new Model('Surface');
     surface.BufferData(CreateSurfaceData());
-    let normals = CreateSurfaceNormals()
-    surface.BufferNormals(normals);
-    lightModel = new Model()
-    lightModel.BufferData(CreateSphere())
-    lightModel.BufferNormals(CreateSphere())
-    lightModel2 = new Model()
-    lightModel2.BufferData([0, 0, 0, 1, 1, 1])
+    surface.LoadNormals(CreateNormals());
+    light.BufferData(CreateSphereSurfaceData())
+    light.LoadNormals(CreateSphereSurfaceData())
 
     gl.enable(gl.DEPTH_TEST);
 }
@@ -293,41 +292,5 @@ function init() {
     }
 
     spaceball = new TrackballRotator(canvas, draw, 0);
-
-    drawContiniously();
-}
-
-
-function CreateSphere() {
-    let vertexList = [];
-
-    let u = 0,
-        v = 0;
-    while (u < Math.PI * 2) {
-        while (v < Math.PI) {
-            let v1 = sphereVertex(u, v);
-            let v2 = sphereVertex(u + 0.1, v);
-            let v3 = sphereVertex(u, v + 0.1);
-            let v4 = sphereVertex(u + 0.1, v + 0.1);
-            vertexList.push(v1.x, v1.y, v1.z);
-            vertexList.push(v2.x, v2.y, v2.z);
-            vertexList.push(v3.x, v3.y, v3.z);
-            vertexList.push(v3.x, v3.y, v3.z);
-            vertexList.push(v2.x, v2.y, v2.z);
-            vertexList.push(v4.x, v4.y, v4.z);
-            v += 0.1;
-        }
-        v = 0;
-        u += 0.1;
-    }
-    return vertexList
-}
-
-const radius = 0.1;
-function sphereVertex(long, lat) {
-    return {
-        x: radius * Math.cos(long) * Math.sin(lat),
-        y: radius * Math.sin(long) * Math.sin(lat),
-        z: radius * Math.cos(lat)
-    }
+    repeatDraw();
 }
