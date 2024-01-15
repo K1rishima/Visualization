@@ -2,4 +2,4 @@
 
 Lab 3 GIF
 
-![plot](./Lab3.gif)
+![plot](./lab3.gif)
